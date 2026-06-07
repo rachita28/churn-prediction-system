@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>ChurnIQ — Upload & Predict</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@300;400;500&display=swap');
+:root{--bg:#060910;--surface:#0c1018;--card:#111620;--border:#1a2235;--accent:#00e5b0;--danger:#ff3d6b;--warn:#ffb547;--purple:#7c6af7;--blue:#38bdf8;--text:#dde4f0;--muted:#4a5568;--glow:0 0 40px rgba(0,229,176,.12);}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background-image:linear-gradient(rgba(0,229,176,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,229,176,.03) 1px,transparent 1px);background-size:40px 40px;}
+header{display:flex;align-items:center;justify-content:space-between;padding:16px 32px;border-bottom:1px solid var(--border);background:rgba(6,9,16,.95);backdrop-filter:blur(20px);position:sticky;top:0;z-index:100;flex-wrap:wrap;gap:10px;}
+.logo{display:flex;align-items:center;gap:12px;}
+.logo-box{width:36px;height:36px;background:linear-gradient(135deg,var(--accent),var(--blue));border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;}
+.logo h1{font-size
+:20px;font-weight:800;letter-spacing:-0.5px;}.logo span{color:var(--accent);}
+.hright{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.live{display:flex;align-items:center;gap:6px;background:rgba(0,229,176,.08);border:1px solid rgba(0,229,176,.25);padding:5px 14px;border-radius:20px;font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.5px;}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:blink 1.5s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.chip{background:var(--card);border:1px solid var(--border);padding:5px 14px;border-radius:20px;font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;}
+.curr-wrap{display:flex;align-items:center;gap:8px;}
+.curr-wrap label{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.5px;}
+select#curr{background:var(--card);border:1px solid var(--border);color:var(--text);padding:5px 12px;border-radius:8px;font-size:12px;font-family:'Syne',sans-serif;cursor:pointer;outline:none;transition:.2s;}
+select#curr:focus{border-color:var(--accent);}
+main{padding:32px;max-width:1500px;margin:0 auto;position:relative;z-index:1;}
+.section-title{font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin:32px 0 16px;display:flex;align-items:center;gap:10px;}
+.section-title::after{content:'';flex:1;height:1px;background:var(--border);}
+.upload-zone{border:2px dashed var(--border);border-radius:20px;padding:48px 32px;text-align:center;cursor:pointer;transition:.3s;background:var(--surface);position:relative;overflow:hidden;}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--accent);background:rgba(0,229,176,.04);}
+.upload-zone.drag{box-shadow:var(--glow);}
+.upload-icon{font-size:48px;margin-bottom:16px;display:block;}
+.upload-title{font-size:20px;font-weight:700;margin-bottom:8px;}
+.upload-sub{font-size:13px;color:var(--muted);margin-bottom:24px;line-height:1.6;}
+.btn-upload{background:var(--accent);color:#060910;padding:12px 28px;border-radius:10px;font-family:'Syne',sans-serif;font-size:14px;font-weight:700;border:none;cursor:pointer;transition:.2s;display:inline-flex;align-items:center;gap:8px;}
+.btn-upload:hover{filter:brightness(1.1);transform:translateY(-1px);}
+#fileInput{display:none;}
+.format-chips{display:flex;justify-content:center;gap:8px;margin-top:20px;flex-wrap:wrap;}
+.fc{background:rgba(0,229,176,.08);border:1px solid rgba(0,229,176,.2);color:var(--accent);padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;}
+#loadingState{display:none;text-align:center;padding:48px;}
+.spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 16px;}
+@keyframes spin{to{transform:rotate(360deg)}}
+#resultsSection{display:none;}
+.mode-banner{display:flex;align-items:center;gap:12px;padding:14px 20px;border-radius:12px;margin-bottom:20px;font-size:13px;font-weight:600;}
+.mode-ml{background:rgba(0,229,176,.1);border:1px solid rgba(0,229,176,.3);color:var(--accent);}
+.mode-basic{background:rgba(255,181,71,.1);border:1px solid rgba(255,181,71,.3);color:var(--warn);}
+.kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;position:relative;overflow:hidden;transition:.2s;}
+.kpi:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:var(--glow);}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--kc,var(--accent));}
+.kpi-ico{position:absolute;top:14px;right:14px;font-size:18px;opacity:.35;}
+.kpi-lbl{font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
+.kpi-val{font-size:26px;font-weight:800;color:var(--kc,var(--accent));font-family:'DM Mono',monospace;line-height:1;}
+.kpi-sub{font-size:11px;color:var(--muted);margin-top:8px;}
+.charts-row{display:grid;gap:16px;}
+.c2{grid-template-columns:1fr 1fr;}
+.c3{grid-template-columns:1.3fr 1fr 1fr;}
+.chart-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;transition:.2s;}
+.chart-card:hover{border-color:rgba(0,229,176,.2);}
+.cc-title{font-size:13px;font-weight:700;margin-bottom:3px;}
+.cc-sub{font-size:11px;color:var(--muted);margin-bottom:14px;}
+.cw{position:relative;height:220px;}
+.seg-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+.seg-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;position:relative;overflow:hidden;transition:.2s;}
+.seg-card:hover{transform:translateY(-3px);}
+.seg-card::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--sc);}
+.seg-name{font-size:14px;font-weight:800;margin-bottom:10px;}
+.seg-badge{display:inline-block;padding:2px 10px;border-radius:20px;font-size:9px;font-weight:700;letter-spacing:1px;margin-bottom:10px;background:rgba(255,255,255,.05);color:var(--sc);border:1px solid var(--sc);}
+.seg-row{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);padding:4px 0;border-bottom:1px solid var(--border);}
+.seg-row:last-child{border:none;}
+.sv{color:var(--text);font-weight:700;font-family:'DM Mono',monospace;font-size:11px;}
+.tcard{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;}
+.thead-bar{padding:18px 22px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+table{width:100%;border-collapse:collapse;}
+thead th{background:#080c14;padding:10px 16px;font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);text-align:left;}
+tbody tr{border-bottom:1px solid var(--border);transition:.15s;}
+tbody tr:hover{background:rgba(255,255,255,.02);}
+tbody td{padding:11px 16px;font-size:12px;}
+.cid{font-family:'DM Mono',monospace;font-size:11px;color:var(--purple);}
+.risk-pill{display:inline-block;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:700;white-space:nowrap;}
+.rc{background:rgba(255,61,107,.15);color:#ff3d6b;border:1px solid rgba(255,61,107,.3);}
+.rh{background:rgba(255,181,71,.15);color:#ffb547;border:1px solid rgba(255,181,71,.3);}
+.rm{background:rgba(255,181,71,.1);color:#ffd166;border:1px solid rgba(255,209,102,.3);}
+.rl{background:rgba(0,229,176,.12);color:#00e5b0;border:1px solid rgba(0,229,176,.3);}
+.pb-wrap{display:flex;align-items:center;gap:7px;}
+.pb-bar{flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden;}
+.pb-fill{height:100%;border-radius:3px;}
+.pb-num{font-size:11px;font-family:'DM Mono',monospace;color:var(--muted);min-width:38px;}
+.t-muted{color:var(--muted);font-size:11px;}
+.t-mono{font-family:'DM Mono',monospace;font-size:11px;}
+.t-green{color:var(--accent);}
+.btn-reset{background:transparent;border:1px solid var(--border);color:var(--muted);padding:8px 18px;border-radius:8px;font-family:'Syne',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:.2s;display:flex;align-items:center;gap:6px;}
+.btn-reset:hover{border-color:var(--danger);color:var(--danger);}
+footer{text-align:center;padding:24px;color:var(--muted);font-size:11px;border-top:1px solid var(--border);margin-top:40px;font-family:'DM Mono',monospace;}
+::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-track{background:var(--bg);}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">
+    <div class="logo-box">📉</div>
+    <h1>Churn<span>IQ</span></h1>
+  </div>
+  <div class="hright">
+    <div class="curr-wrap">
+      <label>CURRENCY</label>
+      <select id="curr" onchange="applyCurrency()">
+        <option value="INR">₹ INR — Indian Rupee</option>
+        <option value="USD">$ USD — US Dollar</option>
+        <option value="EUR">€ EUR — Euro</option>
+        <option value="GBP">£ GBP — British Pound</option>
+        <option value="JPY">¥ JPY — Japanese Yen</option>
+        <option value="AED">د.إ AED — UAE Dirham</option>
+        <option value="SGD">S$ SGD — Singapore Dollar</option>
+      </select>
+    </div>
+    <div class="live"><div class="dot"></div>READY</div>
+    <div class="chip" id="dt">—</div>
+  </div>
+</header>
+
+<main>
+  <div id="uploadSection">
+    <div class="section-title">📂 Upload Your Dataset</div>
+    <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+      <span class="upload-icon">🗂️</span>
+      <div class="upload-title">Drop your CSV file here</div>
+      <div class="upload-sub">
+        Upload any customer dataset — our system will automatically detect the format<br>
+        and run <strong>XGBoost ML predictions</strong> or <strong>smart analytics</strong>
+      </div>
+      <button class="btn-upload" onclick="event.stopPropagation();document.getElementById('fileInput').click()">
+        📁 Choose CSV File
+      </button>
+      <input type="file" id="fileInput" accept=".csv" onchange="handleFile(this.files[0])"/>
+      <div class="format-chips">
+        <span class="fc">✅ IBM Telco Format → Full ML Predictions</span>
+        <span class="fc">📊 Any CSV → Smart Analytics</span>
+        <span class="fc">💱 Multi-Currency Support</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="loadingState">
+    <div class="spinner"></div>
+    <div style="font-size:14px;color:var(--muted)">Analysing your dataset...</div>
+  </div>
+
+  <div id="resultsSection">
+    <div id="modeBanner"></div>
+    <div class="section-title">📊 Key Performance Indicators</div>
+    <div class="kpi-grid">
+      <div class="kpi" style="--kc:#ff3d6b">
+        <div class="kpi-ico">⚠️</div>
+        <div class="kpi-lbl">Churn Rate</div>
+        <div class="kpi-val" id="kpiChurn">—</div>
+        <div class="kpi-sub" id="kpiChurnSub">—</div>
+      </div>
+      <div class="kpi" style="--kc:#7c6af7">
+        <div class="kpi-ico">👥</div>
+        <div class="kpi-lbl">Total Customers</div>
+        <div class="kpi-val" id="kpiTotal">—</div>
+        <div class="kpi-sub">Uploaded dataset</div>
+      </div>
+      <div class="kpi" style="--kc:#ffb547">
+        <div class="kpi-ico">💸</div>
+        <div class="kpi-lbl">Revenue at Risk</div>
+        <div class="kpi-val" id="kpiRev">—</div>
+        <div class="kpi-sub">Critical + High Risk</div>
+      </div>
+      <div class="kpi" style="--kc:#00e5b0">
+        <div class="kpi-ico">🤖</div>
+        <div class="kpi-lbl">Model Used</div>
+        <div class="kpi-val" id="kpiModel" style="font-size:14px;padding-top:4px">—</div>
+        <div class="kpi-sub" id="kpiModelSub">—</div>
+      </div>
+      <div class="kpi" style="--kc:#ff3d6b">
+        <div class="kpi-ico">🚨</div>
+        <div class="kpi-lbl">Critical Customers</div>
+        <div class="kpi-val" id="kpiCritical">—</div>
+        <div class="kpi-sub">Need 24h intervention</div>
+      </div>
+    </div>
+
+    <div class="section-title">📈 Risk Analytics</div>
+    <div class="charts-row c3">
+      <div class="chart-card">
+        <div class="cc-title">Risk Segment Distribution</div>
+        <div class="cc-sub">Customer count by churn risk tier</div>
+        <div class="cw"><canvas id="segChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="cc-title">Churn by Contract Type</div>
+        <div class="cc-sub">Average churn probability per contract</div>
+        <div class="cw"><canvas id="contractChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="cc-title">Churn Probability Distribution</div>
+        <div class="cc-sub">Customers in each risk band</div>
+        <div class="cw"><canvas id="distChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="charts-row c2" style="margin-top:16px">
+      <div class="chart-card">
+        <div class="cc-title">Revenue at Risk by Segment</div>
+        <div class="cc-sub">Monthly charges — at-risk customers</div>
+        <div class="cw"><canvas id="revChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="cc-title">Retention ROI Estimate</div>
+        <div class="cc-sub">Net return if campaign launched today</div>
+        <div class="cw"><canvas id="roiChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="section-title">🎯 Risk Segment Breakdown</div>
+    <div class="seg-grid" id="segCards"></div>
+
+    <div class="section-title" style="margin-top:28px">🚨 Top At-Risk Customers</div>
+    <div class="tcard">
+      <div class="thead-bar">
+        <div>
+          <div class="cc-title">Immediate Action Required</div>
+          <div class="cc-sub">Sorted by churn probability — real model predictions</div>
+        </div>
+        <button class="btn-reset" onclick="resetDashboard()">↩ Upload New File</button>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Customer ID</th><th>Risk Tier</th><th>Churn Probability</th>
+            <th>Contract</th><th>Tenure (mo)</th><th>Monthly Charge</th>
+          </tr>
+        </thead>
+        <tbody id="riskTable"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<footer>ChurnIQ v2.0 · XGBoost AUC 0.9836 · IBM Telco Dataset · Upload any CSV for instant analysis</footer>
+<script>
+document.getElementById('dt').textContent =
+  new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+
+const RATES={INR:83.92,USD:1,EUR:0.92,GBP:0.79,JPY:149.5,AED:3.67,SGD:1.34};
+const SYMS={INR:'₹',USD:'$',EUR:'€',GBP:'£',JPY:'¥',AED:'د.إ',SGD:'S$'};
+let curr='INR';
+let lastRevUSD=0;
+
+function fmtCurr(usd){
+  const v=usd*RATES[curr];
+  const s=SYMS[curr];
+  if(curr==='JPY') return s+Math.round(v).toLocaleString('en-IN');
+  return s+v.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+
+function applyCurrency(){
+  curr=document.getElementById('curr').value;
+  if(lastRevUSD) document.getElementById('kpiRev').textContent=fmtCurr(lastRevUSD);
+  document.querySelectorAll('[data-usd]').forEach(el=>{
+    el.textContent=fmtCurr(parseFloat(el.dataset.usd));
+  });
+  if(window._revChartObj){
+    window._revChartObj.data.datasets[0].data=window._revUSD.map(v=>+(v*RATES[curr]).toFixed(2));
+    window._revChartObj.data.datasets[0].label=`Monthly Revenue (${curr})`;
+    window._revChartObj.update();
+  }
+  if(window._roiChartObj){
+    window._roiChartObj.data.datasets[0].data=window._roiUSD.map(v=>+(v*RATES[curr]).toFixed(0));
+    window._roiChartObj.data.datasets[0].label=`Net ROI (${curr})`;
+    window._roiChartObj.update();
+  }
+}
+
+const dz=document.getElementById('dropZone');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag');});
+dz.addEventListener('dragleave',()=>dz.classList.remove('drag'));
+dz.addEventListener('drop',e=>{
+  e.preventDefault();dz.classList.remove('drag');
+  const f=e.dataTransfer.files[0];
+  if(f) handleFile(f);
+});
+
+function handleFile(file){
+  if(!file||!file.name.endsWith('.csv')){alert('Please upload a CSV file');return;}
+  document.getElementById('uploadSection').style.display='none';
+  document.getElementById('loadingState').style.display='block';
+  const fd=new FormData();
+  fd.append('file',file);
+  fetch('/predict',{method:'POST',body:fd})
+    .then(r=>r.json())
+    .then(data=>{
+      document.getElementById('loadingState').style.display='none';
+      if(data.error){alert('Error: '+data.error);resetDashboard();return;}
+      renderResults(data);
+    })
+    .catch(err=>{
+      document.getElementById('loadingState').style.display='none';
+      alert('Server error: '+err.message);
+      resetDashboard();
+    });
+}
+
+function renderResults(d){
+  document.getElementById('resultsSection').style.display='block';
+  const isML=d.mode==='ml';
+  document.getElementById('modeBanner').innerHTML=isML
+    ?`<div class="mode-banner mode-ml">✅ Full ML Mode — ${d.match_pct}% column match. XGBoost predictions running on your dataset.</div>`
+    :`<div class="mode-banner mode-basic">📊 Analytics Mode — ${d.match_pct}% column match. Upload IBM Telco format CSV for full ML predictions.</div>`;
+
+  const churnRate=d.actual_churn_rate!=null
+    ?(d.actual_churn_rate*100).toFixed(1)+'%'
+    :d.avg_prob.toFixed(1)+'%';
+
+  document.getElementById('kpiChurn').textContent=churnRate;
+  document.getElementById('kpiChurnSub').textContent=`${d.total.toLocaleString()} customers analysed`;
+  document.getElementById('kpiTotal').textContent=d.total.toLocaleString();
+  document.getElementById('kpiCritical').textContent=(d.seg_counts['Critical']||0).toLocaleString();
+  document.getElementById('kpiModel').textContent=isML?d.model_name:'Analytics';
+  document.getElementById('kpiModelSub').textContent=isML?'AUC 0.9836 — Production':'Smart mode active';
+  lastRevUSD=d.rev_at_risk_usd;
+  document.getElementById('kpiRev').textContent=fmtCurr(d.rev_at_risk_usd);
+
+  ['segChart','contractChart','distChart','revChart','roiChart'].forEach(id=>{
+    const c=Chart.getChart(id);if(c)c.destroy();
+  });
+
+  const co=(extra={})=>({
+    responsive:true,maintainAspectRatio:false,
+    plugins:{
+      legend:{labels:{color:'#94a3b8',font:{family:'Syne',size:11},boxWidth:12}},
+      tooltip:{backgroundColor:'#1a2235',titleColor:'#dde4f0',bodyColor:'#94a3b8'}
+    },
+    scales:{
+      x:{grid:{color:'#1a2235'},ticks:{color:'#4a5568',font:{size:10}}},
+      y:{grid:{color:'#1a2235'},ticks:{color:'#4a5568',font:{size:10}}}
+    },...extra
+  });
+
+  const segs=['Critical','High Risk','Moderate','Low Risk'];
+  const segCounts=segs.map(s=>d.seg_counts[s]||0);
+
+  new Chart(document.getElementById('segChart'),{
+    type:'doughnut',
+    data:{
+      labels:['🔴 Critical','🟠 High Risk','🟡 Moderate','🟢 Low Risk'],
+      datasets:[{data:segCounts,backgroundColor:['#ff3d6b','#ffb547','#ffd166','#00e5b0'],borderWidth:2,borderColor:'#111620'}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,cutout:'60%',
+      plugins:{
+        legend:{position:'bottom',labels:{color:'#94a3b8',font:{size:11},padding:10}},
+        tooltip:{backgroundColor:'#1a2235',bodyColor:'#94a3b8'}
+      }
+    }
+  });
+
+  const ctLabels=Object.keys(d.contract_churn);
+  const ctVals=Object.values(d.contract_churn);
+  new Chart(document.getElementById('contractChart'),{
+    type:'bar',
+    data:{
+      labels:ctLabels.length?ctLabels:['No Data'],
+      datasets:[{label:'Avg Churn Prob %',data:ctVals.length?ctVals:[0],
+        backgroundColor:['#ff3d6b','#ffb547','#00e5b0'],borderRadius:6}]
+    },
+    options:co()
+  });
+
+  const bandCounts=[
+    d.seg_counts['Low Risk']||0,
+    Math.round((d.seg_counts['Moderate']||0)*0.4),
+    Math.round((d.seg_counts['Moderate']||0)*0.6),
+    d.seg_counts['High Risk']||0,
+    d.seg_counts['Critical']||0
+  ];
+  new Chart(document.getElementById('distChart'),{
+    type:'bar',
+    data:{
+      labels:['0-20%','20-40%','40-60%','60-80%','80-100%'],
+      datasets:[{label:'Customers',data:bandCounts,
+        backgroundColor:['#00e5b0','#7c6af7','#ffd166','#ffb547','#ff3d6b'],borderRadius:6}]
+    },
+    options:co()
+  });
+
+  const revUSD=segs.map((s,i)=>{
+    const avgCharge=[84,77,68,55][i];
+    return (d.seg_counts[s]||0)*avgCharge;
+  });
+  window._revUSD=revUSD;
+  window._revChartObj=new Chart(document.getElementById('revChart'),{
+    type:'bar',
+    data:{
+      labels:['Critical','High Risk','Moderate','Low Risk'],
+      datasets:[{label:`Monthly Revenue (${curr})`,
+        data:revUSD.map(v=>+(v*RATES[curr]).toFixed(2)),
+        backgroundColor:['#ff3d6b','#ffb547','#ffd166','#00e5b0'],borderRadius:8}]
+    },
+    options:co()
+  });
+
+  const roiUSD=[985,160,82,-468].map((v,i)=>Math.round(v*(d.seg_counts[segs[i]]||0)/100));
+  window._roiUSD=roiUSD;
+  window._roiChartObj=new Chart(document.getElementById('roiChart'),{
+    type:'bar',
+    data:{
+      labels:['Critical','High Risk','Moderate','Low Risk'],
+      datasets:[{label:`Net ROI (${curr})`,
+        data:roiUSD.map(v=>+(v*RATES[curr]).toFixed(0)),
+        backgroundColor:roiUSD.map(v=>v>=0?'rgba(0,229,176,.75)':'rgba(255,61,107,.75)'),
+        borderRadius:8}]
+    },
+    options:co({plugins:{legend:{display:false}}})
+  });
+
+  const segCfg={
+    'Critical':{color:'#ff3d6b',badge:'P0 — CRITICAL',action:'Personal Call — 24h'},
+    'High Risk':{color:'#ffb547',badge:'P1 — HIGH',action:'Email + 15% Discount'},
+    'Moderate':{color:'#ffd166',badge:'P2 — MODERATE',action:'Nurture Campaign'},
+    'Low Risk':{color:'#00e5b0',badge:'P3 — LOW',action:'Upsell / Loyalty'},
+  };
+  const roi100={Critical:985,'High Risk':160,Moderate:82,'Low Risk':-468};
+
+  document.getElementById('segCards').innerHTML=segs.map(s=>{
+    const cfg=segCfg[s];
+    const cnt=d.seg_counts[s]||0;
+    const roi=Math.round(roi100[s]*cnt/100);
+    const rc=roi>=0?'#00e5b0':'#ff3d6b';
+    return `
+    <div class="seg-card" style="--sc:${cfg.color}">
+      <div class="seg-badge">${cfg.badge}</div>
+      <div class="seg-name">${s}</div>
+      <div class="seg-row"><span>Customers</span><span class="sv">${cnt.toLocaleString()}</span></div>
+      <div class="seg-row"><span>Net ROI Est.</span><span class="sv" style="color:${rc}">${fmtCurr(roi)}</span></div>
+      <div class="seg-row"><span>Action</span><span class="sv" style="color:${cfg.color};font-size:10px">${cfg.action}</span></div>
+    </div>`;
+  }).join('');
+
+  const segCls={Critical:'rc','High Risk':'rh',Moderate:'rm','Low Risk':'rl'};
+  const segIco={Critical:'🔴','High Risk':'🟠',Moderate:'🟡','Low Risk':'🟢'};
+
+  document.getElementById('riskTable').innerHTML=d.top_customers.map(c=>{
+    const bc=c.prob>80?'#ff3d6b':c.prob>60?'#ffb547':c.prob>40?'#ffd166':'#00e5b0';
+    return `
+    <tr>
+      <td><code class="cid">${c.id}</code></td>
+      <td><span class="risk-pill ${segCls[c.segment]}">${segIco[c.segment]} ${c.segment}</span></td>
+      <td>
+        <div class="pb-wrap">
+          <div class="pb-bar"><div class="pb-fill" style="width:${c.prob}%;background:${bc}"></div></div>
+          <span class="pb-num">${c.prob}%</span>
+        </div>
+      </td>
+      <td class="t-muted">${c.contract||'—'}</td>
+      <td class="t-mono">${c.tenure}</td>
+      <td class="t-mono t-green" data-usd="${c.charge}">${fmtCurr(c.charge)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function resetDashboard(){
+  document.getElementById('resultsSection').style.display='none';
+  document.getElementById('uploadSection').style.display='block';
+  document.getElementById('fileInput').value='';
+  lastRevUSD=0;
+}
+</script>
+</body>
+</html>

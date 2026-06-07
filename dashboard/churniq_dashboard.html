@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Enterprise Retention Control Center</title>
+    <style>
+        body { font-family: 'Space Grotesk', -apple-system, sans-serif; background: #080b14; color: #e2e8f0; margin: 0; padding: 25px; }
+        .navbar { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e2840; padding-bottom: 20px; margin-bottom: 25px; }
+        .currency-selector { background: #141928; color: #00d4aa; border: 1px solid #1e2840; padding: 8px 16px; border-radius: 8px; font-weight: bold; cursor: pointer; outline: none; }
+        .grid { display: flex; gap: 20px; margin-bottom: 25px; }
+        .card { background: #141928; border: 1px solid #1e2840; border-radius: 12px; padding: 20px; flex: 1; border-top: 4px solid #00d4aa; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .card.danger { border-top-color: #ff4b6e; }
+        .card-title { font-size: 11px; color: #64748b; letter-spacing: 1px; text-transform: uppercase; font-weight: 600; }
+        .card-value { font-size: 30px; font-weight: bold; margin-top: 10px; font-family: monospace; }
+        .table-card { background: #141928; border: 1px solid #1e2840; border-radius: 12px; padding: 24px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 14px; text-align: left; border-bottom: 1px solid #1e2840; font-size: 14px; }
+        th { color: #64748b; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
+        .badge { background: rgba(255,75,110,0.15); color: #ff4b6e; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; border: 1px solid rgba(255,75,110,0.3); }
+    </style>
+</head>
+<body>
+
+    <div class="navbar">
+        <h2 style="margin:0; font-weight:700;">📉 ChurnIQ — Uploaded Dataset Control Room Panel</h2>
+        <div>
+            <label style="color: #64748b; font-size: 13px; margin-right: 8px; font-weight:500;">Select Account Display Currency Group:</label>
+            <select class="currency-selector" id="currencySelect" onchange="updateCurrency()">
+                <option value="INR">INR (₹) — Indian Rupee Ledger</option>
+                <option value="USD">USD ($) — Global Base Account</option>
+                <option value="EUR">EUR (€) — Euro Zone Portfolio</option>
+                <option value="GBP">GBP (£) — United Kingdom Market</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="grid">
+        <div class="card">
+            <div class="card-title">Analyzed Records Matrix Split Length</div>
+            <div class="card-value" style="color: #818cf8;">1,409</div>
+        </div>
+        <div class="card danger">
+            <div class="card-title">ML-Flagged Critical Outliers</div>
+            <div class="card-value" style="color: #ff4b6e;">314</div>
+        </div>
+        <div class="card danger">
+            <div class="card-title">Calculated At-Risk Monthly Revenue</div>
+            <div class="card-value" id="revAtRisk" style="color: #ff8c42;"></div>
+        </div>
+        <div class="card">
+            <div class="card-title">Average Observed Invoiced Charging</div>
+            <div class="card-value" id="avgBilling" style="color: #00d4aa;"></div>
+        </div>
+    </div>
+
+    <div class="table-card">
+        <h3 style="margin:0 0 10px 0;">🚨 Live Operational Risk Matrix (Top 15 Most Fragile Customer Portfolios)</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Customer Serial ID</th>
+                    <th>Structural Contract Type</th>
+                    <th>Observed Account Tenure</th>
+                    <th>Calculated Monthly Charge</th>
+                    <th>Calibrated Predictive Vector Score</th>
+                    <th>Corporate Strategic Outreach</th>
+                </tr>
+            </thead>
+            <tbody id="customerTableBody"></tbody>
+        </table>
+    </div>
+
+    <script>
+        const rates = { "INR": 83.50, "USD": 1.00, "EUR": 0.92, "GBP": 0.79 };
+        const symbols = { "INR": "₹", "USD": "$", "EUR": "€", "GBP": "£" };
+        
+        const baseRevAtRisk = 23339.7;
+        const baseAvgBilling = 74.57168204400284;
+        const rawCustomers = [{"id": "6432-TWQLB", "contract": "Month-to-month", "tenure": 5, "charges": 85.4, "prob": 99.90149736404419}, {"id": "6711-FLDFB", "contract": "Month-to-month", "tenure": 7, "charges": 74.9, "prob": 99.88434314727783}, {"id": "3999-QGRJH", "contract": "Month-to-month", "tenure": 8, "charges": 69.7, "prob": 99.88370537757874}, {"id": "9921-ZVRHG", "contract": "Month-to-month", "tenure": 14, "charges": 80.45, "prob": 99.8777449131012}, {"id": "7841-TZDMQ", "contract": "Month-to-month", "tenure": 2, "charges": 46.0, "prob": 99.87550973892212}, {"id": "3066-RRJIO", "contract": "Month-to-month", "tenure": 1, "charges": 69.95, "prob": 99.87159967422485}, {"id": "9191-MYQKX", "contract": "Month-to-month", "tenure": 7, "charges": 75.15, "prob": 99.86869692802429}, {"id": "0612-RTZZA", "contract": "Month-to-month", "tenure": 1, "charges": 25.25, "prob": 99.85865354537964}, {"id": "9831-BPFRI", "contract": "One year", "tenure": 39, "charges": 89.55, "prob": 99.85671043395996}, {"id": "7825-GKXMW", "contract": "Month-to-month", "tenure": 1, "charges": 45.8, "prob": 99.8530387878418}, {"id": "4088-YLDSU", "contract": "One year", "tenure": 55, "charges": 104.15, "prob": 99.85155463218689}, {"id": "8740-XLHDR", "contract": "Month-to-month", "tenure": 5, "charges": 43.25, "prob": 99.84813332557678}, {"id": "4910-AQFFX", "contract": "Month-to-month", "tenure": 9, "charges": 79.35, "prob": 99.84719157218933}, {"id": "5485-WUYWF", "contract": "Month-to-month", "tenure": 2, "charges": 66.4, "prob": 99.84461665153503}, {"id": "5804-LEPIM", "contract": "Month-to-month", "tenure": 2, "charges": 70.35, "prob": 99.84253644943237}];
+
+        function updateCurrency() {
+            const curr = document.getElementById("currencySelect").value;
+            const rate = rates[curr];
+            const sym = symbols[curr];
+
+            document.getElementById("revAtRisk").innerText = sym + (baseRevAtRisk * rate).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            document.getElementById("avgBilling").innerText = sym + (baseAvgBilling * rate).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+            const tbody = document.getElementById("customerTableBody");
+            tbody.innerHTML = "";
+            
+            rawCustomers.forEach(c => {
+                let convertedCharges = (c.charges * rate).toFixed(2);
+                tbody.innerHTML += `
+                    <tr>
+                        <td style="color:#818cf8; font-family:monospace; font-weight:600;">${c.id}</td>
+                        <td>${c.contract}</td>
+                        <td>${c.tenure} Months</td>
+                        <td style="font-family:monospace; color:#00d4aa; font-weight:600;">${sym}${parseFloat(convertedCharges).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                        <td style="font-weight:bold; color:#ff8c42; font-family:monospace;">${c.prob.toFixed(1)}%</td>
+                        <td><span class="badge">Immediate Outreach</span></td>
+                    </tr>
+                `;
+            });
+        }
+
+        updateCurrency();
+    </script>
+</body>
+</html>
+    
